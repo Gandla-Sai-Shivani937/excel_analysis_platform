@@ -42,17 +42,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (authUser: SupabaseUser) => {
     try {
+      // Check if Supabase is properly configured
+      if (!import.meta.env.VITE_SUPABASE_URL || 
+          import.meta.env.VITE_SUPABASE_URL.includes('your-project') ||
+          !import.meta.env.VITE_SUPABASE_ANON_KEY || 
+          import.meta.env.VITE_SUPABASE_ANON_KEY.includes('your-anon-key')) {
+        console.warn('Supabase is not configured. Using basic user data from auth.');
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          full_name: authUser.user_metadata?.full_name || '',
+          role: 'user',
+          created_at: authUser.created_at || new Date().toISOString(),
+        });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If users table doesn't exist, create a basic user object from auth data
+        if (error.code === '42P01' || error.message.includes('does not exist')) {
+          console.warn('Users table does not exist. Using basic user data from auth.');
+          setUser({
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: authUser.user_metadata?.full_name || '',
+            role: 'user',
+            created_at: authUser.created_at || new Date().toISOString(),
+          });
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       setUser(data);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.warn('Error fetching user profile, using auth data:', error);
+      // Fallback to basic user data from auth
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        full_name: authUser.user_metadata?.full_name || '',
+        role: 'user',
+        created_at: authUser.created_at || new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
     }
@@ -96,17 +136,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Create user profile
     if (data.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-            full_name: fullName,
-            role: 'user',
-          },
-        ]);
-      if (profileError) throw profileError;
+      try {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              full_name: fullName,
+              role: 'user',
+            },
+          ]);
+        if (profileError && !profileError.message.includes('does not exist')) {
+          throw profileError;
+        }
+      } catch (profileError) {
+        console.warn('Could not create user profile in users table:', profileError);
+        // Continue without throwing error - user can still use the app with basic auth data
+      }
     }
   };
 
