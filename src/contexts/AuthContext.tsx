@@ -59,6 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
+    // Check if Supabase is properly configured
+    if (!import.meta.env.VITE_SUPABASE_URL || 
+        import.meta.env.VITE_SUPABASE_URL.includes('your-project') ||
+        !import.meta.env.VITE_SUPABASE_ANON_KEY || 
+        import.meta.env.VITE_SUPABASE_ANON_KEY.includes('your-anon-key')) {
+      throw new Error('Supabase is not configured. Please set up your Supabase project credentials.');
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -67,6 +75,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    // Check if Supabase is properly configured
+    if (!import.meta.env.VITE_SUPABASE_URL || 
+        import.meta.env.VITE_SUPABASE_URL.includes('your-project') ||
+        !import.meta.env.VITE_SUPABASE_ANON_KEY || 
+        import.meta.env.VITE_SUPABASE_ANON_KEY.includes('your-anon-key')) {
+      throw new Error('Supabase is not configured. Please set up your Supabase project credentials.');
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
